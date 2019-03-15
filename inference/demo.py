@@ -10,7 +10,7 @@ from model import *
 from utils import *
 from ply import *
 import pandas as pd
-
+import csv
 
 ###############################################################
 # This script takes as input a 137 * 137 image (from ShapeNet), run it through a trained resnet encoder, then decode it through a trained atlasnet with 25 learned parameterizations, and save the output to output.ply
@@ -60,17 +60,31 @@ for i in range(0,int(grain + 1 )):
         for j in range(0,int(grain + 1 )):
             vertices.append([i/grain,j/grain])
 
+primitive_borders= []
 for prim in range(0,opt.nb_primitives):
     for i in range(0,int(grain + 1)):
         for j in range(0,int(grain + 1)):
             vertex_colors.append(colors[prim])
-
+    offset = ( grain + 1 ) * ( grain + 1 ) * prim
+    primitive_border = []
+    for ij in range(0,int(grain + 1)):
+        first_column = int(offset + ( ( grain + 1 ) * ij))
+        last_column  = int(offset + grain + ( ( grain + 1 ) * ij))
+        first_row    = int(offset + ij)
+        last_row     = int(offset + ij + ( ( grain + 1 ) * grain ))
+        primitive_border = primitive_border + [first_column, last_column, first_row, last_row]
+    print(max(primitive_border))
+    primitive_borders.append(list(set(primitive_border)))
     for i in range(1,int(grain + 1)):
         for j in range(0,(int(grain + 1)-1)):
-            faces.append([(grain+1)*(grain+1)*prim + j+(grain+1)*i, (grain+1)*(grain+1)*prim + j+(grain+1)*i + 1, (grain+1)*(grain+1)*prim + j+(grain+1)*(i-1)])
-    for i in range(0,(int((grain+1))-1)):
+            faces.append([offset + j+(grain+1)*i, 
+                            offset + j+(grain+1)*i + 1, 
+                            offset + j+(grain+1)*(i-1)])
+    for i in range    (0,(int((grain+1))-1)):
         for j in range(1,int((grain+1))):
-            faces.append([(grain+1)*(grain+1)*prim + j+(grain+1)*i, (grain+1)*(grain+1)*prim + j+(grain+1)*i - 1, (grain+1)*(grain+1)*prim + j+(grain+1)*(i+1)])
+            faces.append([offset + j+(grain+1)*i, 
+                            offset + j+(grain+1)*i - 1, 
+                            offset + j+(grain+1)*(i+1)])
 grid = [vertices for i in range(0,opt.nb_primitives)]
 grid_pytorch = torch.Tensor(int(opt.nb_primitives*(grain+1)*(grain+1)),2)
 for i in range(opt.nb_primitives):
@@ -78,7 +92,8 @@ for i in range(opt.nb_primitives):
         grid_pytorch[int(j + (grain+1)*(grain+1)*i),0] = vertices[j][0]
         grid_pytorch[int(j + (grain+1)*(grain+1)*i),1] = vertices[j][1]
 
-
+print(f'{primitive_borders}')
+print(f'primitive_borders:{len(primitive_borders)}')
 #prepare the input data
 from PIL import Image
 import torchvision.transforms as transforms
@@ -101,14 +116,28 @@ img = Variable(img)
 if opt.cuda:
     img = img.cuda()
 
+# [batch, color channel (3), height, width]
+#print(img.size())
+
+# [chart, points in chart, (x, y) or 2 numbers]
+#print(len(grid))
+#print(len(grid[0]))
+#print(grid[0][0])
+
 #forward pass
 pointsReconstructed  = network.forward_inference(img, grid)
 
+# [batch, number of points, color channel (3)]
+# print(pointsReconstructed.size())]
 
+# [face identifier, 3 ids of points that form an edge]
 
 #Save output 3D model
 b = np.zeros((len(faces),4)) + 3
 b[:,1:] = np.array(faces)
-write_ply(filename=opt.input + str(int(opt.gen_points)), points=pd.DataFrame(torch.cat((pointsReconstructed.cpu().data.squeeze(), grid_pytorch), 1).numpy()), as_text=True, text=True, faces = pd.DataFrame(b.astype(int)))
-
-print("Done demoing! Check out results in data/")
+filename = opt.input + str(int(opt.gen_points))
+write_ply(filename=filename, points=pd.DataFrame(torch.cat((pointsReconstructed.cpu().data.squeeze(), grid_pytorch), 1).numpy()), as_text=True, text=True, faces = pd.DataFrame(b.astype(int)))
+with open(f'{filename}.tsv', 'w') as tsvfile:
+    writer = csv.writer(tsvfile, delimiter='\t')
+    writer.writerows(primitive_borders)
+print(f"Done demoing! Check out results in data/{filename}.*")

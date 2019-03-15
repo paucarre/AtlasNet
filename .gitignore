@@ -1,0 +1,6 @@
+.DS_Store
+.vscode
+AE_AtlasNet.txt
+auxiliary
+data
+trained_models

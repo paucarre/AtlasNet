@@ -43,7 +43,10 @@ class STN3d(nn.Module):
         x = x.view(-1, 3, 3)
         return x
 
-
+# takes 3d point cloud and transforms it into a single embedding
+# It can optionally compute a transformation from a 3D cloud into
+#  another 3D cloud (but it does NOT apply the transformation)
+#
 class PointNetfeat(nn.Module):
     def __init__(self, num_points = 2500, global_feat = True, trans = False):
         super(PointNetfeat, self).__init__()
@@ -124,7 +127,9 @@ class PointNetfeatNormal(nn.Module):
 
 #OUR METHOD
 import resnet
-
+#
+# 3d point generator
+#
 class PointGenCon(nn.Module):
     def __init__(self, bottleneck_size = 2500):
         self.bottleneck_size = bottleneck_size
@@ -147,7 +152,9 @@ class PointGenCon(nn.Module):
         x = F.relu(self.bn3(self.conv3(x)))
         x = self.th(self.conv4(x))
         return x
-
+#
+# image-based atalasnet
+#
 class SVR_AtlasNet(nn.Module):
     def __init__(self, num_points = 2048, bottleneck_size = 1024, nb_primitives = 5, pretrained_encoder = False, cuda=True):
         super(SVR_AtlasNet, self).__init__()
@@ -184,18 +191,22 @@ class SVR_AtlasNet(nn.Module):
     def forward_inference(self, x, grid):
         x = self.encoder(x)
         outs = []
+        print(f'Embeddings of image: {x.size()} # [batch index, image embedding size]')
         for i in range(0, self.nb_primitives):
             if self.usecuda:
                 rand_grid = Variable(torch.cuda.FloatTensor(grid[i]))
             else:
                 rand_grid = Variable(torch.FloatTensor(grid[i]))
-
+            print(f'Randgrid initial: {rand_grid.size()} # [point index, (x, y)]')
             rand_grid = rand_grid.transpose(0, 1).contiguous().unsqueeze(0)
             rand_grid = rand_grid.expand(x.size(0), rand_grid.size(1), rand_grid.size(2)).contiguous()
-            # print(rand_grid.sizerand_grid())
+            print(f'Randgrid final: {rand_grid.size()} # [batch index, (x, y), point index]')
             y = x.unsqueeze(2).expand(x.size(0), x.size(1), rand_grid.size(2)).contiguous()
+            print(f'Grid and embeddings initial: {y.size()} # [batch index, embedding, point index]')
             y = torch.cat( (rand_grid, y), 1).contiguous()
+            print(f'Grid and embeddings final: {y.size()} # [batch index, embedding and (x,y) concatenated, point index]')
             outs.append(self.decoder[i](y))
+            print(f'Regenerated 3D points for the chart {outs[0].size()} # [batch, (x, y, z), point index] ')
         return torch.cat(outs, 2).contiguous().transpose(2,1).contiguous()
 
     def forward_inference_from_latent_space(self, x, grid):
@@ -440,10 +451,10 @@ class AE_Baseline_normal(nn.Module):
         self.num_points = num_points
         self.bottleneck_size = bottleneck_size
         self.encoder = nn.Sequential(
-        PointNetfeatNormal(num_points, global_feat=True, trans = False),
-        nn.Linear(1024, self.bottleneck_size),
-        nn.BatchNorm1d(self.bottleneck_size),
-        nn.ReLU()
+            PointNetfeatNormal(num_points, global_feat=True, trans = False),
+            nn.Linear(1024, self.bottleneck_size),
+            nn.BatchNorm1d(self.bottleneck_size),
+            nn.ReLU()
         )
         self.decoder = PointDecoderNormal(num_points = num_points, bottleneck_size = self.bottleneck_size)
 
