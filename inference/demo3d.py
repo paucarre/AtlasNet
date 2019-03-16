@@ -50,7 +50,7 @@ def distChamfer(a,b):
     xx = torch.bmm(x, x.transpose(2,1))
     yy = torch.bmm(y, y.transpose(2,1))
     zz = torch.bmm(x, y.transpose(2,1))
-    diag_ind = torch.arange(0, num_points).type(torch.cuda.LongTensor)
+    diag_ind = torch.arange(0, num_points).type(torch.LongTensor)
     rx = xx[:, diag_ind, diag_ind].unsqueeze(1).expand_as(xx)
     ry = yy[:, diag_ind, diag_ind].unsqueeze(1).expand_as(yy)
     P = (rx.transpose(2,1) + ry - 2*zz)
@@ -67,10 +67,9 @@ torch.manual_seed(opt.manualSeed)
 
 # ===================CREATE network================================= #
 network = AE_AtlasNet(num_points = opt.num_points, nb_primitives = opt.nb_primitives)
-network.cuda()
 network.apply(weights_init)
 if opt.model != '':
-    network.load_state_dict(torch.load(opt.model))
+    network.load_state_dict(torch.load(opt.model, map_location='cpu' ))
     print("previous weight loaded")
 network.eval()
 # ========================================================== #
@@ -129,7 +128,6 @@ with torch.no_grad():
     points = ShapeNet.load_point_set(opt.input).unsqueeze(0)
 
     points = points.transpose(2,1).contiguous()
-    points = points.cuda()
     pointsReconstructed  = network.forward_inference(points, grid)
     dist1, dist2 = distChamfer(points.transpose(2,1).contiguous(), pointsReconstructed)
     loss_net = ((torch.mean(dist1) + torch.mean(dist2)))
