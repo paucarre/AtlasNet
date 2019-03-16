@@ -97,32 +97,45 @@ class ShapeNet(data.Dataset):
                         ])
 
     def __getitem__(self, index):
+        #('./data/ShapeNet/ShapeNetRendering/02691156/d172705764e25e20884a857d19f7439f/rendering', 
+        #'./data/customShapeNet/02691156/ply/d172705764e25e20884a857d19f7439f.points.ply',
+        # 'plane', '/home/thibault/Downloads/data/ssd/ShapeNetCorev2/02691156/d172705764e25e20884a857d19f7439f/models/model_normalized.ply', 
+        #'d172705764e25e20884a857d19f7439f')
         fn = self.datapath[index]
-        with open(fn[1]) as fp:
+        return self.get_from_file_path(fn)
+    
+    @staticmethod
+    def load_point_set(file_path, npoints=2500, normal=False):
+        with open(file_path) as fp:
             for i, line in enumerate(fp):
                 if i == 2:
                     try:
                         lenght = int(line.split()[2])
                     except ValueError:
-                        print(fn)
+                        print(file_path)
                         print(line)
                     break
         for i in range(15): #this for loop is because of some weird error that happens sometime during loading I didn't track it down and brute force the solution like this.
             try:
-                mystring = my_get_n_random_lines(fn[1], n = self.npoints)
+                mystring = my_get_n_random_lines(file_path, n = npoints)
                 point_set = np.loadtxt(mystring).astype(np.float32)
                 break
             except ValueError as excep:
-                print(fn)
+                print(file_path)
                 print(excep)
 
         # centroid = np.expand_dims(np.mean(point_set[:,0:3], axis = 0), 0) #Useless because dataset has been normalised already
         # point_set[:,0:3] = point_set[:,0:3] - centroid
-        if not self.normal:
+        if not normal:
             point_set = point_set[:,0:3]
         else:
             point_set[:,3:6] = 0.1 * point_set[:,3:6]
         point_set = torch.from_numpy(point_set)
+        point_set = point_set.contiguous()
+        return point_set
+
+    def get_from_file_path(self, fn):
+        point_set = ShapeNet.load_point_set(fn[1], self.npoints, self.normal)
 
         # load image
         if self.SVR:
@@ -150,7 +163,7 @@ class ShapeNet(data.Dataset):
             data = data[:3,:,:]
         else:
             data = 0
-        return data, point_set.contiguous(), fn[2], fn[3], fn[4]
+        return data, point_set, fn[2], fn[3], fn[4]
 
 
     def __len__(self):

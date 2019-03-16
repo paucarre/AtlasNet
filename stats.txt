@@ -1,0 +1,3 @@
+json_stats: {"val_loss": 0.0006476464914157987, "gen_points": 2500}
+json_stats: {"val_loss": 0.0006306273862719536, "gen_points": 2500}
+json_stats: {"val_loss": 0.0006484430050477386, "gen_points": 2500}
