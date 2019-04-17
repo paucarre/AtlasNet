@@ -228,10 +228,10 @@ class AE_AtlasNet(nn.Module):
         self.bottleneck_size = bottleneck_size
         self.nb_primitives = nb_primitives
         self.encoder = nn.Sequential(
-        PointNetfeat(num_points, global_feat=True, trans = False),
-        nn.Linear(1024, self.bottleneck_size),
-        nn.BatchNorm1d(self.bottleneck_size),
-        nn.ReLU()
+            PointNetfeat(num_points, global_feat=True, trans = False),
+            nn.Linear(1024, self.bottleneck_size),
+            nn.BatchNorm1d(self.bottleneck_size),
+            nn.ReLU()
         )
         self.decoder = nn.ModuleList([PointGenCon(bottleneck_size = 2 +self.bottleneck_size) for i in range(0,self.nb_primitives)])
 

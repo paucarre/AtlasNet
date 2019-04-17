@@ -48,6 +48,7 @@ if opt.model != '':
 network.eval()
 grain = int(np.sqrt(opt.gen_points/opt.nb_primitives))-1
 grain = grain*1.0
+print(f"Grain: {grain}")
 
 #generate regular grid
 faces = []
